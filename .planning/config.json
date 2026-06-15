@@ -1,0 +1,14 @@
+{
+  "version": "1.0",
+  "project_code": "PPM",
+  "model_profile": "balanced",
+  "workflow": {
+    "commit_docs": true,
+    "auto_commit": false,
+    "research_enabled": true,
+    "parallelization": true,
+    "subagent_timeout": 300000
+  },
+  "model_overrides": {},
+  "custom": {}
+}
