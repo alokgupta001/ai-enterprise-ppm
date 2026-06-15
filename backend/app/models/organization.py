@@ -38,3 +38,9 @@ class Organization(Base, BaseMixin):
         back_populates="organization",
         cascade="all, delete-orphan"
     )
+    assessments = relationship(
+        "Assessment",
+        back_populates="organization",
+        cascade="all, delete-orphan"
+    )
+
