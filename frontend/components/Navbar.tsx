@@ -67,7 +67,7 @@ export default function Navbar() {
             <Sparkles className="h-6 w-6" />
           </div>
           <div>
-            <h1 className="font-bold text-white text-lg tracking-tight leading-none">Antigravity</h1>
+            <h1 className="font-bold text-white text-lg tracking-tight leading-none">PMO</h1>
             <span className="text-xs text-indigo-400 font-semibold uppercase tracking-wider">Enterprise PPM</span>
           </div>
         </div>
