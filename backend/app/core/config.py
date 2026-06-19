@@ -14,3 +14,9 @@ DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://postgres:9001@localhost:5
 # AI API Keys
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+
+# Environment & CORS configuration
+ENV = os.getenv("ENV", "development")
+cors_origins_raw = os.getenv("CORS_ORIGINS", "http://localhost:3000")
+CORS_ORIGINS = [origin.strip() for origin in cors_origins_raw.split(",") if origin.strip()]
+
