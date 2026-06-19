@@ -33,7 +33,10 @@ def run_root_cause_analysis(project_id_or_name: str, db: Session) -> dict:
         )
 
         project = db.query(Project).filter(
-            Project.name.ilike(f"%{escaped_name}%"),
+            Project.name.ilike(
+                f"%{escaped_name}%",
+                escape="\\"
+            ),
             Project.is_deleted.is_(False)
         ).first()
 
