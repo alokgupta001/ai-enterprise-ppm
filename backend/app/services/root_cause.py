@@ -26,8 +26,14 @@ def run_root_cause_analysis(project_id_or_name: str, db: Session) -> dict:
         pass
 
     if not project:
+        escaped_name = (
+            project_id_or_name
+            .replace("%", r"\%")
+            .replace("_", r"\_")
+        )
+
         project = db.query(Project).filter(
-            Project.name.ilike(f"%{project_id_or_name.replace('%', '\\%').replace('_', '\\_')}%"),
+            Project.name.ilike(f"%{escaped_name}%"),
             Project.is_deleted.is_(False)
         ).first()
 
@@ -54,12 +60,17 @@ def run_root_cause_analysis(project_id_or_name: str, db: Session) -> dict:
     ).order_by(SprintData.sprint_number).all()
 
     # Compile structured project stats
-    budget_pct = (float(project.budget_used) / float(project.budget) * 100) if (project.budget and float(project.budget) > 0) else 0
-    health_score = float(project.health_score) if project.health_score is not None else 0
+    budget_pct = (float(project.budget_used) / float(project.budget)
+                  * 100) if (project.budget and float(project.budget) > 0) else 0
+    health_score = float(
+        project.health_score) if project.health_score is not None else 0
     budget = float(project.budget) if project.budget is not None else 0
-    budget_used = float(project.budget_used) if project.budget_used is not None else 0
-    avg_velocity = sum(s.velocity for s in sprints) / len(sprints) if sprints else 0
-    avg_completion = sum(float(s.completion_rate) for s in sprints) / len(sprints) if sprints else 100.0
+    budget_used = float(
+        project.budget_used) if project.budget_used is not None else 0
+    avg_velocity = sum(s.velocity for s in sprints) / \
+        len(sprints) if sprints else 0
+    avg_completion = sum(float(s.completion_rate)
+                         for s in sprints) / len(sprints) if sprints else 100.0
 
     project_data = {
         "name": project.name,
@@ -114,14 +125,14 @@ def _run_llm_analysis(data: dict) -> dict:
 
         chain = prompt | llm
         result = chain.invoke({"project_json": json.dumps(data, indent=2)})
-        
+
         # Clean response string if wrapped in markdown
         cleaned_content = result.content.strip()
         if cleaned_content.startswith("```json"):
             cleaned_content = cleaned_content[7:]
         if cleaned_content.endswith("```"):
             cleaned_content = cleaned_content[:-3]
-        
+
         parsed = json.loads(cleaned_content.strip())
         parsed["analyzed_by"] = "OpenAI Root Cause Diagnostic Engine"
         return parsed
@@ -133,7 +144,7 @@ def _run_llm_analysis(data: dict) -> dict:
 def _run_fallback_analysis(data: dict) -> dict:
     """Generate a highly detailed analysis using rule-based heuristics."""
     health_summary = f"Project '{data['name']}' is currently '{data['status']}' with a health score of {data['health_score']}/100. "
-    
+
     primary_issues = []
     root_causes = []
     mitigations = []
@@ -141,48 +152,62 @@ def _run_fallback_analysis(data: dict) -> dict:
     # 1. Budget Checks
     if data["budget_used_percent"] > 90 and data["status"] != "completed":
         primary_issues.append("Critical budget depletion")
-        root_causes.append(f"High cash burn rate: {data['budget_used_percent']}% of the ${data['budget']:,.0f} budget has been consumed while work is outstanding.")
-        mitigations.append("Initiate immediate scope reduction or request contingency fund release.")
+        root_causes.append(
+            f"High cash burn rate: {data['budget_used_percent']}% of the ${data['budget']:,.0f} budget has been consumed while work is outstanding.")
+        mitigations.append(
+            "Initiate immediate scope reduction or request contingency fund release.")
 
     # 2. Risk Severity Checks
-    high_risks = [r["description"] for r in data["risks"] if r["severity"] and r["severity"].lower() == "high"]
+    high_risks = [r["description"] for r in data["risks"]
+                  if r["severity"] and r["severity"].lower() == "high"]
     if high_risks:
         for hr in high_risks:
             primary_issues.append(f"Unmitigated high-risk item: {hr[:60]}...")
-            root_causes.append(f"Lack of active risk mitigation planning for: {hr}")
-        mitigations.append("Schedule a dedicated risk-response session with key technical stakeholders to draft mitigation workflows.")
+            root_causes.append(
+                f"Lack of active risk mitigation planning for: {hr}")
+        mitigations.append(
+            "Schedule a dedicated risk-response session with key technical stakeholders to draft mitigation workflows.")
 
     # 3. Sprint performance and Velocity trends
     if data["avg_sprint_completion"] < 70:
         primary_issues.append("Low sprint delivery completion rate")
-        root_causes.append(f"Over-commitment in planning: average sprint completion rate is {data['avg_sprint_completion']}%")
-        mitigations.append("Reduce sprint planning capacity by 25-30% to align with actual historical team velocity.")
+        root_causes.append(
+            f"Over-commitment in planning: average sprint completion rate is {data['avg_sprint_completion']}%")
+        mitigations.append(
+            "Reduce sprint planning capacity by 25-30% to align with actual historical team velocity.")
 
     if len(data["sprints"]) >= 3:
         velocities = [s["velocity"] for s in data["sprints"]]
         if velocities[-1] < velocities[-3] * 0.8:
             primary_issues.append("Declining velocity trend")
-            root_causes.append(f"Technical debt accumulation or resource blockage causing velocity to fall to {velocities[-1]} points.")
-            mitigations.append("Dedicate 20% of the next sprint backlog to technical debt and environment resolution.")
+            root_causes.append(
+                f"Technical debt accumulation or resource blockage causing velocity to fall to {velocities[-1]} points.")
+            mitigations.append(
+                "Dedicate 20% of the next sprint backlog to technical debt and environment resolution.")
 
     # 4. Resource Constraints
     if data["team_size"] < 4 and data["status"] in ["delayed", "at_risk"]:
         primary_issues.append("Sub-optimal team size")
-        root_causes.append(f"Severe resource bottlenecks: Only {data['team_size']} members allocated for a non-performing project.")
-        mitigations.append("Cross-allocate at least one senior engineer from an on-track project (e.g. Customer Portal Redesign) to balance capacity.")
+        root_causes.append(
+            f"Severe resource bottlenecks: Only {data['team_size']} members allocated for a non-performing project.")
+        mitigations.append(
+            "Cross-allocate at least one senior engineer from an on-track project (e.g. Customer Portal Redesign) to balance capacity.")
 
     # General summaries based on status
     if data["status"] == "delayed":
         health_summary += "The project has missed key delivery dates and requires immediate corrective actions."
         if not primary_issues:
             primary_issues.append("General timeline delays")
-            root_causes.append("Ineffective timeline estimates and scope creep.")
-            mitigations.append("Perform a re-baselining of target delivery milestones.")
+            root_causes.append(
+                "Ineffective timeline estimates and scope creep.")
+            mitigations.append(
+                "Perform a re-baselining of target delivery milestones.")
     elif data["status"] == "at_risk":
         health_summary += "The project shows negative indicators that could threaten ultimate timeline goals if left unaddressed."
     elif data["status"] == "on_track":
         health_summary += "The project is meeting planned targets and milestones successfully."
-        mitigations.append("Continue standard agile sprint delivery processes and monitor risk logs.")
+        mitigations.append(
+            "Continue standard agile sprint delivery processes and monitor risk logs.")
     else:
         health_summary += "The project is finished and archived."
 
